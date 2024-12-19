@@ -1,5 +1,7 @@
 <?php
 session_start();
+//var_dump($_SESSION);  // Esto te mostrará qué datos están almacenados en la sesión.
+
 require_once('../php/database.php');  // Conexión a la base de datos
 
 // Verificar si el usuario está logueado (comprobamos si existe el 'user' en la sesión)
@@ -8,13 +10,14 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
-// Usar el correo electrónico del usuario para otras consultas si es necesario
-$usuario_email = $_SESSION['user'];  // El valor de 'user' es el correo electrónico del usuario
+// Usar el ID del usuario directamente desde la sesión
+$usuario_id = $_SESSION['user'];  // Usamos el ID directamente de la sesión
 
 // Verificar si el usuario existe en la base de datos
-$queryUsuario = "SELECT id FROM registro WHERE email = ?";
+$queryUsuario = "SELECT id FROM registro WHERE id = ?";
+
 $stmtUsuario = $pdo->prepare($queryUsuario);
-$stmtUsuario->execute([$usuario_email]);
+$stmtUsuario->execute([$usuario_id]);
 
 if ($stmtUsuario->rowCount() === 0) {
     die("Error: El usuario no está registrado en el sistema.");
@@ -49,9 +52,6 @@ $stmtMediosPago = $pdo->query($queryMediosPago);
 
 // Si se recibe el formulario con POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Validar usuario
-    // Ya no es necesario, ya lo validamos antes con $_SESSION['user']
-
     // Validar envío
     $envio_id = $_POST['envio_id'];
     $queryEnvio = "SELECT id FROM envios WHERE id = ?";
@@ -78,24 +78,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmtCompra->execute([$usuario_id, $envio_id, $totalCompra, $medioPago_id]);
     $compra_id = $pdo->lastInsertId();  // Obtener el ID de la compra recién creada
 
-// Verificar que los productos en el carrito tengan un ID válido
-/*foreach ($carrito as $id => $producto) {
-    if (empty($producto['id'])) {
-        die("Error: El producto no tiene un ID válido.");
-    }
-    $subtotalProducto = $producto['precio'] * $producto['cantidad'];
-    
-    // Insertar los productos comprados
-    $queryProductoComprado = "INSERT INTO productos_comprados (compra_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
-    $stmtProductoComprado = $pdo->prepare($queryProductoComprado);
-    $stmtProductoComprado->execute([$compra_id, $producto['id'], $producto['cantidad'], $producto['precio'], $subtotalProducto]);
+    // Verificar que los productos en el carrito tengan un ID válido
+    foreach ($carrito as $id => $producto) {
+        if (empty($producto['id'])) {
+            die("Error: El producto no tiene un ID válido.");
+        }
+        $subtotalProducto = $producto['precio'] * $producto['cantidad'];
 
-    // Actualizar el stock de los productos
-    $queryActualizarStock = "UPDATE productos SET stock = stock - ? WHERE id = ?";
-    $stmtActualizarStock = $pdo->prepare($queryActualizarStock);
-    $stmtActualizarStock->execute([$producto['cantidad'], $producto['id']]);
-}
-*/
+        // Insertar los productos comprados
+        $queryProductoComprado = "INSERT INTO productos_comprados (compra_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)";
+        $stmtProductoComprado = $pdo->prepare($queryProductoComprado);
+        $stmtProductoComprado->execute([$compra_id, $producto['id'], $producto['cantidad'], $producto['precio'], $subtotalProducto]);
+
+        // Actualizar el stock de los productos
+        $queryActualizarStock = "UPDATE productos SET stock = stock - ? WHERE id = ?";
+        $stmtActualizarStock = $pdo->prepare($queryActualizarStock);
+        $stmtActualizarStock->execute([$producto['cantidad'], $producto['id']]);
+    }
 
     // Limpiar el carrito
     unset($_SESSION['carrito']);
